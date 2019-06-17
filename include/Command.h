@@ -18,12 +18,20 @@ enum {
         NAME,
         EMAIL,
         AGE,
+        ID1,
+        ID2,
     };
     
 enum{
     AVG = 10,
     COUNT,
-    SUM
+    SUM,
+};
+
+enum{
+    USER = 20,
+    LIKE,
+    TABLE,//for other unknow name
 };
 
 typedef struct where_conditon{

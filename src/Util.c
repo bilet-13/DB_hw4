@@ -140,12 +140,33 @@ void handle_builtin_cmd(Table_t *table, Command_t *cmd, State_t *state) {
 /// Handle query type commands
 /// Return: command type
 ///
-int handle_query_cmd(Table_t *table, Command_t *cmd) {
+int handle_query_cmd(Table_t *table, Table_like_t *like_table, Command_t *cmd) {
     if (!strncmp(cmd->args[0], "insert", 6)) {
-        handle_insert_cmd(table, cmd);
+        handle_insert_cmd(table, like_table, cmd);
         return INSERT_CMD;
     } else if (!strncmp(cmd->args[0], "select", 6)) {
-        handle_select_cmd(table, cmd);
+        unsigned int i;
+        int table_type = TABLE;
+        for(i = 1 ; i < cmd->args_len; i++){
+            if(!strncmp(cmd->args[i], "from", 4)){
+                if(!strncmp(cmd->args[i+1], "user", 4)){
+                    table_type = USER;
+                    break;
+                }
+                else if(!strncmp(cmd->args[i+1], "like", 4)){
+                    table_type = LIKE;
+                    break;
+                }
+            }
+        }
+        /*default handle the table as user */
+        if(table_type == USER)
+            handle_user_select_cmd(table, cmd, i+2);
+        else if(table_type == LIKE)
+        /*unchange the table type */
+            handle_like_select_cmd(like_table, cmd, i+2);
+        else
+            handle_user_select_cmd(table, cmd, i+2);
         return SELECT_CMD;
     } else if (!strncmp(cmd->args[0], "update", 6)) {
         handle_update_cmd(table, cmd);
@@ -163,24 +184,36 @@ int handle_query_cmd(Table_t *table, Command_t *cmd) {
 /// If the insert operation success, then change the input arg
 /// `cmd->type` to INSERT_CMD
 ///
-int handle_insert_cmd(Table_t *table, Command_t *cmd) {
+int handle_insert_cmd(Table_t *table,Table_like_t *like_table , Command_t *cmd) {
     int ret = 0;
-    User_t *user = command_to_User(cmd);
-    if (user) {
-        ret = add_User(table, user);
-        if (ret > 0) {
-            cmd->type = INSERT_CMD;
+    if(!strncmp(cmd->args[2], "like", 4)){
+        Like_t *like = command_to_Like(cmd);
+        if (like) {
+            ret = add_Like(like_table, like);
+            if (ret > 0) {
+                cmd->type = INSERT_CMD;
+            }
         }
+        return ret;
     }
-    return ret;
+    else if(!strncmp(cmd->args[2], "user", 4)){
+        User_t *user = command_to_User(cmd);
+        if (user) {
+            ret = add_User(table, user);
+            if (ret > 0) {
+                cmd->type = INSERT_CMD;
+            }
+        }
+        return ret;
+    }
 }
 
 ///
 /// The return value is the number of rows select from table
 /// If the select operation success, then change the input arg
 /// `cmd->type` to SELECT_CMD
-///
-int handle_select_cmd(Table_t *table, Command_t *cmd) {
+/// This one is to handle the user table
+int handle_user_select_cmd(Table_t *table, Command_t *cmd, unsigned int cmd_i) {
 
     field_state_handler(cmd, 1);
 
@@ -197,9 +230,13 @@ int handle_select_cmd(Table_t *table, Command_t *cmd) {
     size_t idx , list_len = 0;
     int list[table->len];
 
-    /*where command*/
-    for( i = 1 ; i<cmd->args_len ; i++){
-        if(!strncmp(cmd->args[i], "where", 5) && i+1 != cmd->args_len){
+    /*where and join command*/
+    for( i = cmd_i ; i<cmd->args_len ; i++){
+        if(!strncmp(cmd->args[i], "join", 4) && i+1 != cmd->args_len){
+            printf("For join command\n");
+            return 1;
+        }
+        else if(!strncmp(cmd->args[i], "where", 5) && i+1 != cmd->args_len){
             where_flag = 1;
             condition[0] = handle_where_cmd(cmd,i+1);
             i = condition[0].com_cur_len;
@@ -327,7 +364,7 @@ int handle_select_cmd(Table_t *table, Command_t *cmd) {
             printf("(");
         else
         {
-            printf(",");
+            printf(", ");
             count = 0;
             sum = 0;
         }
@@ -382,6 +419,222 @@ int handle_select_cmd(Table_t *table, Command_t *cmd) {
 
     cmd->type = SELECT_CMD;
     return table->len;
+}
+
+/// This one is to handle the like table
+/// unchange the table
+int handle_like_select_cmd(Table_like_t *like_table, Command_t *cmd, unsigned int cmd_i) {
+
+    field_state_handler(cmd, 1);
+
+    for(unsigned int l = 0 ; l < like_table->len ; l++){
+        Like_t *like = get_Like(like_table,l);
+        printf("(%u,%u)\n",like->id1,like->id2);
+    }
+    return 1;
+
+    // /*aggregation*/
+    // double sum = 0, count = 0;
+    // int aggr_field = 0 , aggr_count = 0 , aggr_flag = 0;
+
+    // /*where correlative flag*/
+    // int where_flag = 0 , and_flag = 0 , or_flag = 0;
+    // unsigned int i = 0 ;
+    // where_conditon_t condition[2];
+
+    // /*table correlative parameter*/
+    // size_t idx , list_len = 0;
+    // int list[table->len];
+
+    // /*where and join command*/
+    // for( i = cmd_i ; i<cmd->args_len ; i++){
+    //     if(!strncmp(cmd->args[i], "join", 4) && i+1 != cmd->args_len){
+    //         printf("For join command\n");
+    //         return 1;
+    //     }
+    //     else if(!strncmp(cmd->args[i], "where", 5) && i+1 != cmd->args_len){
+    //         where_flag = 1;
+    //         condition[0] = handle_where_cmd(cmd,i+1);
+    //         i = condition[0].com_cur_len;
+    //     }
+    //     else if(!strncmp(cmd->args[i], "and", 3) && i+1 != cmd->args_len){
+    //         and_flag = 1;
+    //         condition[1] = handle_where_cmd(cmd,i+1);
+    //         i = condition[1].com_cur_len;
+    //     }
+    //     else if(!strncmp(cmd->args[i], "or", 2) && i+1 != cmd->args_len){
+    //         or_flag = 1;
+    //         condition[1] = handle_where_cmd(cmd,i+1);
+    //         i = condition[1].com_cur_len;
+    //     }
+    // }
+    // /*select table by where condition*/
+    // for (idx = 0; idx < table->len; idx++) {
+    //     User_t *user = get_User(table, idx);
+    //     int print_flag = 0;
+    //     /*one where condition*/
+    //     if(where_flag && !and_flag && !or_flag){
+    //         print_flag = check_where_condition(user,condition[0]);
+    //     }
+    //     /*two where condtion and*/
+    //     else if(where_flag && and_flag){
+    //         if(check_where_condition(user,condition[0]) && check_where_condition(user,condition[1]))
+    //             print_flag = 1;
+    //     }
+    //     /*two where condition or*/
+    //     else if(where_flag && or_flag){
+    //         if(check_where_condition(user,condition[0]) || check_where_condition(user,condition[1]))
+    //             print_flag = 1;
+    //     }
+    //     /*no where condition*/
+    //     else{
+    //         print_flag = 1;
+    //     }
+    //     /*該row不須被印出 一> 直接忽略該row*/
+    //     if(!print_flag){
+    //         continue;
+    //     }
+    //     /*result tabel index list*/
+    //     list[list_len++] = idx;
+    // }
+    // /*deal with aggregation*/
+    // for(i = 1 ; i < cmd->args_len ; i++){
+    //     if(strstr(cmd->args[i] , "avg")){
+    //         aggr_flag = AVG;
+    //         for(unsigned int j = i ; j < cmd->args_len ; j++){
+    //             if(strstr(cmd->args[j] , "id")){
+    //                 aggr_field = ID;
+    //                 break;
+    //             }
+    //             else if(strstr(cmd->args[j] , "name")){
+    //                 aggr_field = NAME;
+    //                 break;
+    //             }
+    //             else if(strstr(cmd->args[j] , "email")){
+    //                 aggr_field = EMAIL;
+    //                 break;
+    //             }
+    //             else if(strstr(cmd->args[j] , "age")){
+    //                 aggr_field = AGE;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     else if(strstr(cmd->args[i] , "count")){
+    //         aggr_flag = COUNT;
+    //         for(unsigned int j = i ; j < cmd->args_len ; j++){
+    //             if(strstr(cmd->args[j] , "id")){
+    //                 aggr_field = ID;
+    //                 break;
+    //             }
+    //             else if(strstr(cmd->args[j] , "name")){
+    //                 aggr_field = NAME;
+    //                 break;
+    //             }
+    //             else if(strstr(cmd->args[j] , "email")){
+    //                 aggr_field = EMAIL;
+    //                 break;
+    //             }
+    //             else if(strstr(cmd->args[j] , "age")){
+    //                 aggr_field = AGE;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     else if(strstr(cmd->args[i] , "sum")){
+    //         aggr_flag = SUM;
+    //         for(unsigned int j = i ; j < cmd->args_len ; j++){
+    //             if(strstr(cmd->args[j] , "id")){
+    //                 aggr_field = ID;
+    //                 break;
+    //             }
+    //             else if(strstr(cmd->args[j] , "name")){
+    //                 aggr_field = NAME;
+    //                 break;
+    //             }
+    //             else if(strstr(cmd->args[j] , "email")){
+    //                 aggr_field = EMAIL;
+    //                 break;
+    //             }
+    //             else if(strstr(cmd->args[j] , "age")){
+    //                 aggr_field = AGE;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     /*don't exist aggregation -> print normal table*/
+    //     else if(!aggr_flag){
+    //         print_users(table, list, list_len, cmd);
+    //         break;
+    //     }
+    //     /*handle the limit and offset*/
+    //     int limit = cmd->cmd_args.sel_args.limit;
+    //     int offset = cmd->cmd_args.sel_args.offset;
+        
+    //     if(aggr_flag && ( offset >= 1 || ( limit < 1 && limit > -1 ) ) ){
+    //         cmd->type = SELECT_CMD;
+    //         return table->len;
+    //     }
+    //     /*first aggregation*/
+    //     if(!aggr_count)
+    //         printf("(");
+    //     else
+    //     {
+    //         printf(", ");
+    //         count = 0;
+    //         sum = 0;
+    //     }
+        
+    //     for( unsigned int j = 0 ; j < list_len ; j++){
+    //         User_t *user = get_User( table , list[j]);
+    //         /*aggregation compute*/
+    //         if(aggr_flag){
+    //             count++;
+    //             switch (aggr_field)
+    //             {
+    //             case ID :
+    //                 sum += (double)user->id;
+    //                 break;
+                
+    //             case AGE :
+    //                 sum += (double)user->age;
+    //                 break;
+    //             }
+    //             continue;
+    //         }
+
+    //     }
+    //     if(aggr_flag){
+    //         switch (aggr_flag)
+    //         {
+    //         case AVG :
+    //             if(count)
+    //                 printf("%.3lf",sum/count);
+    //             else
+    //                 printf("0.000");
+    //             break;
+    //         case COUNT :
+    //             printf("%d",(int)count);
+    //             break;
+    //         case SUM :
+    //             printf("%d",(int)sum);
+    //             break;
+    //         }
+    //     }
+
+    //     aggr_count++;
+    //     /*exist another aggregation*/
+    //     if(strstr(cmd->args[i+1] , "avg") != NULL || strstr(cmd->args[i+1] , "count") != NULL || strstr(cmd->args[i+1] , "sum") != NULL){
+    //     }
+    //     /*can't find any other aggregation end the loop*/
+    //     else if(aggr_flag){
+    //         printf(")\n");
+    //         break;
+    //     }
+    // }
+
+    // cmd->type = SELECT_CMD;
+    // return table->len;
 }
 
 int handle_update_cmd(Table_t *table, Command_t *cmd){

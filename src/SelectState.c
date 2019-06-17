@@ -22,9 +22,6 @@ void field_state_handler(Command_t *cmd, size_t arg_idx) {
         } else if (!strncmp(cmd->args[arg_idx], "from", 4)) {
             table_state_handler(cmd, arg_idx+1);
             return;
-        } else {
-            cmd->type = UNRECOG_CMD;
-            return;
         }
         arg_idx += 1;
     }
@@ -34,7 +31,7 @@ void field_state_handler(Command_t *cmd, size_t arg_idx) {
 
 void table_state_handler(Command_t *cmd, size_t arg_idx) {
     if (arg_idx < cmd->args_len
-            && !strncmp(cmd->args[arg_idx], "table", 5)) {
+            && ( !strncmp(cmd->args[arg_idx], "table", 5) || !strncmp(cmd->args[arg_idx], "user", 4) || !strncmp(cmd->args[arg_idx], "like", 4) ) ) {
 
         arg_idx++;
         for( ; arg_idx < cmd->args_len ; arg_idx++){

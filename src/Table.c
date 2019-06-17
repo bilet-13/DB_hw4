@@ -161,3 +161,79 @@ error:
     return NULL;
 }
 
+/*Below is the functions which are according to like table */
+Table_like_t *new_Like_Table(char *file_name){
+    Table_like_t *table = (Table_like_t*)malloc(sizeof(Table_like_t));
+    memset((void*)table, 0, sizeof(Table_like_t));
+    table->capacity = INIT_TABLE_SIZE;
+    table->len = 0;
+    table->likes = (Like_t*)malloc(
+                            sizeof(Like_t) * INIT_TABLE_SIZE);
+    table->cache_map = (unsigned char*)malloc(sizeof(char)*INIT_TABLE_SIZE);
+    memset(table->cache_map, 0, sizeof(char)*INIT_TABLE_SIZE);
+    table->fp = NULL;
+    table->file_name = NULL;
+    /*I have not implement the function of loading Like table file */
+    // load_table(table, file_name);
+    return table;
+}
+int add_Like(Table_like_t *table, Like_t *like){
+    size_t idx;
+    Like_t *like_ptr;
+    if (!table || !like) {
+        return 0;
+    }
+    // Check id doesn't exist in the table
+    for (idx = 0; idx < table->len; idx++) {
+        like_ptr = get_Like(table, idx);
+        if (like_ptr->id1 == like->id1) {
+            return 0;
+        }
+    }
+    if (table->len == table->capacity) {
+        Like_t *new_like_buf = (Like_t*)malloc(sizeof(Like_t)*(table->len+EXT_LEN));
+        unsigned char *new_cache_buf = (unsigned char *)malloc(sizeof(unsigned char)*(table->len+EXT_LEN));
+
+        memcpy(new_like_buf, table->likes, sizeof(Like_t)*table->len);
+
+        memset(new_cache_buf, 0, sizeof(unsigned char)*(table->len+EXT_LEN));
+        memcpy(new_cache_buf, table->cache_map, sizeof(unsigned char)*table->len);
+
+
+        free(table->likes);
+        free(table->cache_map);
+        table->likes = new_like_buf;
+        table->cache_map = new_cache_buf;
+        table->capacity += EXT_LEN;
+    }
+    idx = table->len;
+    memcpy((table->likes)+idx, like, sizeof(Like_t));
+    table->cache_map[idx] = 1;
+    table->len++;
+    return 1;
+}
+Like_t* get_Like(Table_like_t *table, size_t idx){
+    size_t archived_len;
+    struct stat st;
+    if (!table->cache_map[idx]) {
+        if (idx > INIT_TABLE_SIZE) {
+            goto error;
+        }
+        if (stat(table->file_name, &st) != 0) {
+            goto error;
+        }
+        archived_len = st.st_size / sizeof(Like_t);
+        if (idx >= archived_len) {
+            //neither in file, nor in memory
+            goto error;
+        }
+
+        fseek(table->fp, idx*sizeof(Like_t), SEEK_SET);
+        fread(table->likes+idx, sizeof(Like_t), 1, table->fp);
+        table->cache_map[idx] = 1;
+    }
+    return table->likes+idx;
+
+error:
+    return NULL;
+}

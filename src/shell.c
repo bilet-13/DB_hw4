@@ -11,13 +11,16 @@ int main(int argc, char **argv) {
     Command_t *cmd = new_Command();
     State_t *state = new_State();
     Table_t *table = NULL;
+    Table_like_t *like_table = NULL;
     int cmd_type;
     if (argc != 2) {
         table = new_Table(NULL);
+        like_table = new_Like_Table(NULL);
     } else {
         table = new_Table(argv[1]);
+        like_table = new_Like_Table(NULL);
     }
-    if (table == NULL) {
+    if (table == NULL || like_table == NULL) {
         return 1;
     }
     for (;;) {
@@ -27,7 +30,7 @@ int main(int argc, char **argv) {
         if (cmd_type == BUILT_IN_CMD) {
             handle_builtin_cmd(table, cmd, state);
         } else if (cmd_type == QUERY_CMD) {
-            handle_query_cmd(table, cmd);
+            handle_query_cmd(table, like_table, cmd);
         } else if (cmd_type == UNRECOG_CMD) {
             printf("Unrecognized command '%s'.\n", input_buffer->buffer);
         }

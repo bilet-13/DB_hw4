@@ -11,9 +11,20 @@ typedef struct User {
     char email[MAX_USER_EMAIL+1];
     unsigned int age;
 } User_t;
+/*like table's tuple*/
+typedef struct Like {
+    unsigned int id1;
+    unsigned int id2;
+} Like_t;
 
+/*According to user table*/
 User_t* new_User();
 User_t* command_to_User(Command_t *cmd);
+
+/*According to like table*/
+Like_t* new_Like();
+Like_t* command_to_Like(Command_t *cmd);
+
 int check_where_condition(User_t *user,where_conditon_t condition);
 
 #endif
