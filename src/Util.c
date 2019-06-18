@@ -32,6 +32,27 @@ void print_prompt(State_t *state) {
 ///
 /// Print the user in the specific format
 ///
+void print_like(Like_t *like, SelectArgs_t *sel_args) {
+    size_t idx;
+    printf("(");
+    for (idx = 0; idx < sel_args->fields_len; idx++) {
+        if (!strncmp(sel_args->fields[idx], "*", 1)) {
+            printf("%d,%d", like->id1, like->id2);
+        } else {
+            if (idx > 0) printf(", ");
+
+            if (!strncmp(sel_args->fields[idx], "id1", 3)) {
+                printf("%d", like->id1);
+            } else if (!strncmp(sel_args->fields[idx], "id2", 3)) {
+                printf("%d", like->id2);
+            }
+        }
+    }
+    printf(")\n");
+}
+///
+/// Print the user in the specific format
+///
 void print_user(User_t *user, SelectArgs_t *sel_args) {
     size_t idx;
     printf("(");
@@ -53,6 +74,26 @@ void print_user(User_t *user, SelectArgs_t *sel_args) {
         }
     }
     printf(")\n");
+}
+
+///
+/// Print the users for given offset and limit restriction
+///
+void print_likes(Table_like_t *table, Command_t *cmd) {
+    size_t idx;
+    int limit = cmd->cmd_args.sel_args.limit;
+    int offset = cmd->cmd_args.sel_args.offset;
+
+    if (offset == -1) {
+        offset = 0;
+    }
+    for (idx = offset; idx < table->len; idx++) {
+        if (limit != -1 && (idx - offset) >= limit) {
+            break;
+        }
+        print_like(get_Like(table, idx), &(cmd->cmd_args.sel_args));
+    }
+    
 }
 
 ///
@@ -207,6 +248,7 @@ int handle_insert_cmd(Table_t *table,Table_like_t *like_table , Command_t *cmd) 
         return ret;
     }
 }
+
 
 ///
 /// The return value is the number of rows select from table
@@ -427,19 +469,19 @@ int handle_like_select_cmd(Table_like_t *like_table, Command_t *cmd, unsigned in
 
     field_state_handler(cmd, 1);
 
-    for(unsigned int l = 0 ; l < like_table->len ; l++){
+    /*for(unsigned int l = 0 ; l < like_table->len ; l++){
         Like_t *like = get_Like(like_table,l);
         printf("(%u,%u)\n",like->id1,like->id2);
     }
-    return 1;
+    return 1;*/
 
     // /*aggregation*/
-    // double sum = 0, count = 0;
-    // int aggr_field = 0 , aggr_count = 0 , aggr_flag = 0;
+     double sum = 0, count = 0;
+     int aggr_field = 0 , aggr_count = 0 , aggr_flag = 0;
 
     // /*where correlative flag*/
     // int where_flag = 0 , and_flag = 0 , or_flag = 0;
-    // unsigned int i = 0 ;
+     unsigned int i = 0 ;
     // where_conditon_t condition[2];
 
     // /*table correlative parameter*/
@@ -498,143 +540,119 @@ int handle_like_select_cmd(Table_like_t *like_table, Command_t *cmd, unsigned in
     //     list[list_len++] = idx;
     // }
     // /*deal with aggregation*/
-    // for(i = 1 ; i < cmd->args_len ; i++){
-    //     if(strstr(cmd->args[i] , "avg")){
-    //         aggr_flag = AVG;
-    //         for(unsigned int j = i ; j < cmd->args_len ; j++){
-    //             if(strstr(cmd->args[j] , "id")){
-    //                 aggr_field = ID;
-    //                 break;
-    //             }
-    //             else if(strstr(cmd->args[j] , "name")){
-    //                 aggr_field = NAME;
-    //                 break;
-    //             }
-    //             else if(strstr(cmd->args[j] , "email")){
-    //                 aggr_field = EMAIL;
-    //                 break;
-    //             }
-    //             else if(strstr(cmd->args[j] , "age")){
-    //                 aggr_field = AGE;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //     else if(strstr(cmd->args[i] , "count")){
-    //         aggr_flag = COUNT;
-    //         for(unsigned int j = i ; j < cmd->args_len ; j++){
-    //             if(strstr(cmd->args[j] , "id")){
-    //                 aggr_field = ID;
-    //                 break;
-    //             }
-    //             else if(strstr(cmd->args[j] , "name")){
-    //                 aggr_field = NAME;
-    //                 break;
-    //             }
-    //             else if(strstr(cmd->args[j] , "email")){
-    //                 aggr_field = EMAIL;
-    //                 break;
-    //             }
-    //             else if(strstr(cmd->args[j] , "age")){
-    //                 aggr_field = AGE;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //     else if(strstr(cmd->args[i] , "sum")){
-    //         aggr_flag = SUM;
-    //         for(unsigned int j = i ; j < cmd->args_len ; j++){
-    //             if(strstr(cmd->args[j] , "id")){
-    //                 aggr_field = ID;
-    //                 break;
-    //             }
-    //             else if(strstr(cmd->args[j] , "name")){
-    //                 aggr_field = NAME;
-    //                 break;
-    //             }
-    //             else if(strstr(cmd->args[j] , "email")){
-    //                 aggr_field = EMAIL;
-    //                 break;
-    //             }
-    //             else if(strstr(cmd->args[j] , "age")){
-    //                 aggr_field = AGE;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //     /*don't exist aggregation -> print normal table*/
-    //     else if(!aggr_flag){
-    //         print_users(table, list, list_len, cmd);
-    //         break;
-    //     }
-    //     /*handle the limit and offset*/
-    //     int limit = cmd->cmd_args.sel_args.limit;
-    //     int offset = cmd->cmd_args.sel_args.offset;
+     for(i = 1 ; i < cmd->args_len ; i++){
+         if(strstr(cmd->args[i] , "avg")){
+             aggr_flag = AVG;
+             for(unsigned int j = i ; j < cmd->args_len ; j++){
+                 if(strstr(cmd->args[j] , "id1")){
+                     aggr_field = ID1;
+                     break;
+                 }
+                 else if(strstr(cmd->args[j] , "id2")){
+                     aggr_field = ID2;
+                     break;
+                 }
+             }
+         }
+         else if(strstr(cmd->args[i] , "count")){
+             aggr_flag = COUNT;
+             for(unsigned int j = i ; j < cmd->args_len ; j++){
+                 if(strstr(cmd->args[j] , "id1")){
+                     aggr_field = ID1;
+                     break;
+                 }
+                 else if(strstr(cmd->args[j] , "id2")){
+                     aggr_field = ID2;
+                     break;
+                 }
+             }
+         }
+         else if(strstr(cmd->args[i] , "sum")){
+             aggr_flag = SUM;
+             for(unsigned int j = i ; j < cmd->args_len ; j++){
+                 if(strstr(cmd->args[j] , "id1")){
+                     aggr_field = ID1;
+                     break;
+                 }
+                 else if(strstr(cmd->args[j] , "id2")){
+                     aggr_field = ID2;
+                     break;
+                 }
+             }
+         }
+         /*don't exist aggregation -> print normal table*/
+         else if(!aggr_flag){
+             print_likes(like_table,cmd);
+             break;
+         }
+         /*handle the limit and offset*/
+         int limit = cmd->cmd_args.sel_args.limit;
+         int offset = cmd->cmd_args.sel_args.offset;
         
-    //     if(aggr_flag && ( offset >= 1 || ( limit < 1 && limit > -1 ) ) ){
-    //         cmd->type = SELECT_CMD;
-    //         return table->len;
-    //     }
-    //     /*first aggregation*/
-    //     if(!aggr_count)
-    //         printf("(");
-    //     else
-    //     {
-    //         printf(", ");
-    //         count = 0;
-    //         sum = 0;
-    //     }
+         if(aggr_flag && ( offset >= 1 || ( limit < 1 && limit > -1 ) ) ){
+            cmd->type = SELECT_CMD;
+             return like_table->len;
+         }
+         /*first aggregation*/
+         if(!aggr_count)
+             printf("(");
+         else
+         {
+             printf(", ");
+             count = 0;
+             sum = 0;
+         }
         
-    //     for( unsigned int j = 0 ; j < list_len ; j++){
-    //         User_t *user = get_User( table , list[j]);
-    //         /*aggregation compute*/
-    //         if(aggr_flag){
-    //             count++;
-    //             switch (aggr_field)
-    //             {
-    //             case ID :
-    //                 sum += (double)user->id;
-    //                 break;
+         for( unsigned int j = 0 ; j < like_table->len ; j++){
+             Like_t *like = get_Like( like_table , j);
+             /*aggregation compute*/
+             if(aggr_flag){
+                 count++;
+                 switch (aggr_field)
+                 {
+                 case ID1 :
+                     sum += (double)like->id1;
+                     break;
                 
-    //             case AGE :
-    //                 sum += (double)user->age;
-    //                 break;
-    //             }
-    //             continue;
-    //         }
+                 case ID2 :
+                     sum += (double)like->id2;
+                     break;
+                 }
+                 continue;
+             }
 
-    //     }
-    //     if(aggr_flag){
-    //         switch (aggr_flag)
-    //         {
-    //         case AVG :
-    //             if(count)
-    //                 printf("%.3lf",sum/count);
-    //             else
-    //                 printf("0.000");
-    //             break;
-    //         case COUNT :
-    //             printf("%d",(int)count);
-    //             break;
-    //         case SUM :
-    //             printf("%d",(int)sum);
-    //             break;
-    //         }
-    //     }
+         }
+         if(aggr_flag){
+             switch (aggr_flag)
+             {
+             case AVG :
+                 if(count)
+                     printf("%.3lf",sum/count);
+                 else
+                     printf("0.000");
+                 break;
+             case COUNT :
+                 printf("%d",(int)count);
+                 break;
+             case SUM :
+                 printf("%d",(int)sum);
+                 break;
+             }
+         }
 
-    //     aggr_count++;
-    //     /*exist another aggregation*/
-    //     if(strstr(cmd->args[i+1] , "avg") != NULL || strstr(cmd->args[i+1] , "count") != NULL || strstr(cmd->args[i+1] , "sum") != NULL){
-    //     }
-    //     /*can't find any other aggregation end the loop*/
-    //     else if(aggr_flag){
-    //         printf(")\n");
-    //         break;
-    //     }
-    // }
+         aggr_count++;
+         /*exist another aggregation*/
+         if(strstr(cmd->args[i+1] , "avg") != NULL || strstr(cmd->args[i+1] , "count") != NULL || strstr(cmd->args[i+1] , "sum") != NULL){
+         }
+         /*can't find any other aggregation end the loop*/
+         else if(aggr_flag){
+             printf(")\n");
+             break;
+         }
+     }
 
-    // cmd->type = SELECT_CMD;
-    // return table->len;
+     cmd->type = SELECT_CMD;
+     return like_table->len;
 }
 
 int handle_update_cmd(Table_t *table, Command_t *cmd){
@@ -645,7 +663,7 @@ int handle_update_cmd(Table_t *table, Command_t *cmd){
     where_conditon_t condition[2];
 
     /*update_content*/
-    where_conditon_t up_cont={.field = 0 , .com_cur_len = cmd->args_len};
+    where_conditon_t up_cont={.field = 0 , .com_cur_len = cmd->args_len };
 
     char *ptr = NULL;
     /*find update content*/
