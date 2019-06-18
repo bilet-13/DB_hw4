@@ -247,6 +247,7 @@ int handle_insert_cmd(Table_t *table,Table_like_t *like_table , Command_t *cmd) 
         }
         return ret;
     }
+    return ret;
 }
 
 
@@ -469,19 +470,14 @@ int handle_like_select_cmd(Table_like_t *like_table, Command_t *cmd, unsigned in
 
     field_state_handler(cmd, 1);
 
-    /*for(unsigned int l = 0 ; l < like_table->len ; l++){
-        Like_t *like = get_Like(like_table,l);
-        printf("(%u,%u)\n",like->id1,like->id2);
-    }
-    return 1;*/
 
-    // /*aggregation*/
-     double sum = 0, count = 0;
-     int aggr_field = 0 , aggr_count = 0 , aggr_flag = 0;
+    /*aggregation*/
+    double sum = 0, count = 0;
+    int aggr_field = 0 , aggr_count = 0 , aggr_flag = 0;
 
     // /*where correlative flag*/
     // int where_flag = 0 , and_flag = 0 , or_flag = 0;
-     unsigned int i = 0 ;
+    unsigned int i = 0 ;
     // where_conditon_t condition[2];
 
     // /*table correlative parameter*/
