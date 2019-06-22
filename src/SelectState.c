@@ -19,6 +19,10 @@ void field_state_handler(Command_t *cmd, size_t arg_idx) {
             add_select_field(cmd, cmd->args[arg_idx]);
         } else if (!strncmp(cmd->args[arg_idx], "age", 3)) {
             add_select_field(cmd, cmd->args[arg_idx]);
+        } else if (!strncmp(cmd->args[arg_idx], "id1", 3)) {
+            add_select_field(cmd, cmd->args[arg_idx]);
+        } else if (!strncmp(cmd->args[arg_idx], "id2", 3)) {
+            add_select_field(cmd, cmd->args[arg_idx]);
         } else if (!strncmp(cmd->args[arg_idx], "from", 4)) {
             table_state_handler(cmd, arg_idx+1);
             return;

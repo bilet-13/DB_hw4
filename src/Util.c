@@ -29,15 +29,48 @@ void print_prompt(State_t *state) {
     }
 }
 
+////
+///
+///
+
 ///
 /// Print the user in the specific format
+///
+void print_join(User_t *user,Like_t *like SelectArgs_t *sel_args) {
+    size_t idx;
+    printf("(");
+    for (idx = 0; idx < sel_args->fields_len; idx++) {
+        if (!strncmp(sel_args->fields[idx], "*", 1)) {
+            printf("%d, %s, %s, %d, %d, %d", user->id, user->name, user->email, user->age,like->id1,like_->id2);
+        } else {
+            if (idx > 0) printf(", ");
+
+            if (!strncmp(sel_args->fields[idx], "id", 2)) {
+                printf("%d", user->id);
+            } else if (!strncmp(sel_args->fields[idx], "name", 4)) {
+                printf("%s", user->name);
+            } else if (!strncmp(sel_args->fields[idx], "email", 5)) {
+                printf("%s", user->email);
+            } else if (!strncmp(sel_args->fields[idx], "age", 3)) {
+                printf("%d", user->age);
+            }else if (!strncmp(sel_args->fields[idx], "id1", 3)) {
+                printf("%d", like->id1);
+            }else if (!strncmp(sel_args->fields[idx], "id2", 3)) {
+                printf("%d", like->id2);
+            }
+        }
+    }
+    printf(")\n");
+}
+//
+///
 ///
 void print_like(Like_t *like, SelectArgs_t *sel_args) {
     size_t idx;
     printf("(");
     for (idx = 0; idx < sel_args->fields_len; idx++) {
         if (!strncmp(sel_args->fields[idx], "*", 1)) {
-            printf("%d,%d", like->id1, like->id2);
+           printf("%d, %d", like->id1, like->id2);
         } else {
             if (idx > 0) printf(", ");
 
@@ -74,6 +107,56 @@ void print_user(User_t *user, SelectArgs_t *sel_args) {
         }
     }
     printf(")\n");
+}
+///
+///Print the join table for given offset and limit restriction
+///
+void print_joins(Table_like_t *user_table, Table_like_t *like_table,
+    int *idxList, size_t idxListLen,, Command_t *cmd, join_condiction_t* join_condiction) {
+
+    size_t idx,inner_idx;
+    size_t time=0;
+    int limit = cmd->cmd_args.sel_args.limit;
+    int offset = cmd->cmd_args.sel_args.offset;
+
+    if (offset == -1) {
+        offset = 0;
+    }
+    
+    if (idxList) {
+        for (idx = offset; idx < idxListLen; idx++) {
+            if (limit != -1 && (time - offset) >= limit) {
+                break;
+            }
+            for(inner_idx=0 ; inner_idx<like_table->len ; inner++)
+            {
+                User_t *user=get_User(user_table, idxList[idx]);
+                Like_t *like=get_Like(like_table,inner_idx);
+                if(check_join_condiction(user,like,join_condiction))
+                {
+                    time++;
+                    print_join(user,like,&(cmd->cmd_args.sel_args))
+                }
+            }
+        }
+    } else {
+        for (idx = offset; idx < user_table->len; idx++) {
+            if (limit != -1 && (time - offset) >= limit) {
+                break;
+            }
+           for(inner_idx=0 ; inner_idx<like_table->len ; inner++)
+            {
+                User_t *user=get_User(user_table, idx);
+                Like_t *like=get_Like(like_table,inner_idx);
+                if(check_join_condiction(user,like,join_condiction))
+                {
+                    time++;
+                    print_join(user,like ,&(cmd->cmd_args.sel_args))
+                }
+            }
+        }
+    }
+    
 }
 
 ///
@@ -181,6 +264,7 @@ void handle_builtin_cmd(Table_t *table, Command_t *cmd, State_t *state) {
 /// Handle query type commands
 /// Return: command type
 ///
+//equal join
 int handle_query_cmd(Table_t *table, Table_like_t *like_table, Command_t *cmd) {
     if (!strncmp(cmd->args[0], "insert", 6)) {
         handle_insert_cmd(table, like_table, cmd);
@@ -202,13 +286,14 @@ int handle_query_cmd(Table_t *table, Table_like_t *like_table, Command_t *cmd) {
         }
         /*default handle the table as user */
         if(table_type == USER)
-            handle_user_select_cmd(table, cmd, i+2);
+            handle_user_select_cmd(table,like_table, cmd, i+2);
         else if(table_type == LIKE)
         /*unchange the table type */
             handle_like_select_cmd(like_table, cmd, i+2);
         else
             handle_user_select_cmd(table, cmd, i+2);
         return SELECT_CMD;
+ //equal join
     } else if (!strncmp(cmd->args[0], "update", 6)) {
         handle_update_cmd(table, cmd);
         return SELECT_CMD;
@@ -256,7 +341,7 @@ int handle_insert_cmd(Table_t *table,Table_like_t *like_table , Command_t *cmd) 
 /// If the select operation success, then change the input arg
 /// `cmd->type` to SELECT_CMD
 /// This one is to handle the user table
-int handle_user_select_cmd(Table_t *table, Command_t *cmd, unsigned int cmd_i) {
+int handle_user_select_cmd(Table_t *table, Table_like_t *like_table, Command_t *cmd, unsigned int cmd_i) {
 
     field_state_handler(cmd, 1);
 
@@ -269,6 +354,11 @@ int handle_user_select_cmd(Table_t *table, Command_t *cmd, unsigned int cmd_i) {
     unsigned int i = 0 ;
     where_conditon_t condition[2];
 
+    /*equal join parameter*/
+    int join_flag = 0 ;
+    size_t join_idx;
+    join_condiction_t join_condiction;
+
     /*table correlative parameter*/
     size_t idx , list_len = 0;
     int list[table->len];
@@ -276,8 +366,8 @@ int handle_user_select_cmd(Table_t *table, Command_t *cmd, unsigned int cmd_i) {
     /*where and join command*/
     for( i = cmd_i ; i<cmd->args_len ; i++){
         if(!strncmp(cmd->args[i], "join", 4) && i+1 != cmd->args_len){
-            printf("For join command\n");
-            return 1;
+           join_condiction=handle_join_cmd(cmd,i+1);
+           join_flag=1;
         }
         else if(!strncmp(cmd->args[i], "where", 5) && i+1 != cmd->args_len){
             where_flag = 1;
@@ -345,6 +435,14 @@ int handle_user_select_cmd(Table_t *table, Command_t *cmd, unsigned int cmd_i) {
                     aggr_field = AGE;
                     break;
                 }
+                else if(strstr(cmd->args[j] , "id1")){
+                    aggr_field = ID1;
+                    break;
+                }
+                else if(strstr(cmd->args[j] , "id2")){
+                    aggr_field = ID2;
+                    break;
+                }
             }
         }
         else if(strstr(cmd->args[i] , "count")){
@@ -364,6 +462,14 @@ int handle_user_select_cmd(Table_t *table, Command_t *cmd, unsigned int cmd_i) {
                 }
                 else if(strstr(cmd->args[j] , "age")){
                     aggr_field = AGE;
+                    break;
+                }
+                else if(strstr(cmd->args[j] , "id1")){
+                    aggr_field = ID1;
+                    break;
+                }
+                else if(strstr(cmd->args[j] , "id2")){
+                    aggr_field = ID2;
                     break;
                 }
             }
@@ -387,11 +493,25 @@ int handle_user_select_cmd(Table_t *table, Command_t *cmd, unsigned int cmd_i) {
                     aggr_field = AGE;
                     break;
                 }
+                else if(strstr(cmd->args[j] , "id1")){
+                    aggr_field = ID1;
+                    break;
+                }
+                else if(strstr(cmd->args[j] , "id2")){
+                    aggr_field = ID2;
+                    break;
+                }
             }
         }
-        /*don't exist aggregation -> print normal table*/
-        else if(!aggr_flag){
+        /*don't exist aggregation and equal join-> print normal table*/
+        else if(!aggr_flag && !join_flag){
             print_users(table, list, list_len, cmd);
+            break;
+        }
+        /*exist join but don't exist aggregation -> print normal table*/
+        else if(!aggr_flag && join_flag)
+        {
+            print_joins(table,like_table,list,list_len,cmd,&join_condiction);
             break;
         }
         /*handle the limit and offset*/
@@ -415,19 +535,69 @@ int handle_user_select_cmd(Table_t *table, Command_t *cmd, unsigned int cmd_i) {
         for( unsigned int j = 0 ; j < list_len ; j++){
             User_t *user = get_User( table , list[j]);
             /*aggregation compute*/
-            if(aggr_flag){
-                count++;
-                switch (aggr_field)
-                {
-                case ID :
-                    sum += (double)user->id;
-                    break;
+            if(!join_flag){
+                if(aggr_flag){
+                     count++;
+                    switch (aggr_field)
+                   {
+                  case ID :
+                     sum += (double)user->id;
+                     break;
                 
-                case AGE :
-                    sum += (double)user->age;
-                    break;
+                    case AGE :
+                     sum += (double)user->age;
+                        break;
+                    }
+                    continue;
                 }
-                continue;
+            }
+            else{
+                if(aggr_flag){
+                    switch (aggr_field)
+                   {
+                    case ID :
+                     for(join_idx=0;join_idx<like_table->len ; join_idx++)
+                     {
+                        Like_t *like=get_Like(like_table,join_idx);
+                        if(check_join_condiction(user,like,&join_condiction)){
+                            sum+=(double)user->id;
+                            count++;
+                        }
+                     }
+                     break;
+                
+                    case AGE :
+                      for(join_idx=0;join_idx<like_table->len ; join_idx++)
+                      {
+                        Like_t *like=get_Like(like_table,join_idx);
+                        if(check_join_condiction(user,like,&join_condiction)){
+                            sum+=(double)user->age;
+                            count++;
+                        }
+                      }
+                        break;
+                    case ID1:
+                      for(join_idx=0;join_idx<like_table->len ; join_idx++)
+                      {
+                        Like_t *like=get_Like(like_table,join_idx);
+                        if(check_join_condiction(user,like,&join_condiction)){
+                            sum+=(double)like->id1;
+                            count++;
+                        }
+                      }
+                      break;
+                    case ID2:
+                      for(join_idx=0;join_idx<like_table->len ; join_idx++)
+                      {
+                        Like_t *like=get_Like(like_table,join_idx);
+                        if(check_join_condiction(user,like,&join_condiction)){
+                            sum+=(double)like->id2;
+                        }
+                      }
+                      break;
+                    }
+                    continue;
+                }
             }
 
         }
@@ -1013,6 +1183,40 @@ int check_where_condition(User_t *user,where_conditon_t condition){
                 break;
             }
         return 0 ;
+}
+
+int check_join_condiction(User_t *user,Like_t *like,join_condicton_t *condiction){
+    if(condiction->field2==ID1){
+        if(user->id==like->id1)return 1;
+        else return 0;
+    }
+    else if(condiction->field2==ID2){
+        if(user->id == like->ID2)return 1;
+        else return 0;
+    }
+}
+
+join_condiction_t handle_join_cmd(Command_t *cmd,size_t len){
+    size_t i=len;
+    join_condiction_t condiction={.field=0, .field2=0};
+    char* ptr=NULL;
+        if(condiction.field1 == 0){
+            if(strstr(cmd->args[i] , "id")){
+                condiction.field1= ID;
+            }
+        }
+
+        i+=2;
+
+        if(condiction.field2== 0){
+             if(strstr(cmd->args[i] , "id1")){
+                condiction.field2= ID1;
+            }
+            else if(strstr(cmd->args[i] , "id2")){
+                condiction.field2 = ID2;
+            }
+        }
+        return condiction;
 }
 
 ///

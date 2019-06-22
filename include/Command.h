@@ -2,7 +2,7 @@
 #define COMMAND_H
 
 enum { 
-    UNRECOG_CMD,
+    UNRECOG_CMD,//0????????????????????????
     BUILT_IN_CMD,
     QUERY_CMD,
 };
@@ -13,7 +13,7 @@ enum {
 };
 
 enum {
-        STAR = 1,
+        STAR = 1,//這邊要改吧??
         ID,
         NAME,
         EMAIL,
@@ -40,6 +40,11 @@ typedef struct where_conditon{
     char content[256];
     size_t com_cur_len;//The position of array in command which is unused
 } where_conditon_t;
+
+typedef struct join_conditon{
+    int field1;
+    int field2;
+} equal_conditon_t;
 
 typedef struct {
     char name[256];
