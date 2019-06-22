@@ -1194,6 +1194,7 @@ int check_join_condiction(User_t *user,Like_t *like,join_condicton_t *condiction
         if(user->id == like->ID2)return 1;
         else return 0;
     }
+    else return 0;
 }
 
 join_condiction_t handle_join_cmd(Command_t *cmd,size_t len){
