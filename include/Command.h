@@ -44,7 +44,7 @@ typedef struct where_conditon{
 typedef struct join_conditon{
     int field1;
     int field2;
-} equal_conditon_t;
+} join_condiction_t;
 
 typedef struct {
     char name[256];
